@@ -56,19 +56,21 @@ void setup() {
 }
 
 void loop() {
-  paintPulseColour(CHSV(40, 255, 255), 0.1);
+  paintCandleBlend(CHSV(40, 255, 200), CHSV(40, 180, 255), 0.1);
   // paintNoise();
 }
 
 double v;
-void paintPulseColour(CHSV color, float frequency) {
-  v = sinf(PI * millis() * frequency / 1000);
-  v = v * v * 155 + 100;
-  color.v = v;
-  for (int i = 0; i < NUM_LEDS * NUM_STRIPS; i++) {
-    leds[i] = color;
+CHSV color;
+#define AMOUNT 0.2
+void paintCandleBlend(CHSV color1, CHSV color2, float frequency) {
+  v = inoise8(458212393 + millis() * frequency) * 0.6 + inoise8(239345821 + millis() * frequency * 5) * 0.4;
+  color = blend(color1, color2, v);
+  for (int i = 0; i < NUM_LEDS * NUM_STRIPS * AMOUNT; i++) {
+    leds[random(NUM_LEDS * NUM_STRIPS)] = color;
   }
   FastLED.show();
+  delay(10);
 }
 
 void paintSolidColour(CHSV color) {
