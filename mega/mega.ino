@@ -56,21 +56,27 @@ void setup() {
 }
 
 void loop() {
-  paintCandleBlend(CHSV(40, 255, 200), CHSV(40, 180, 255), 0.1);
+  paintCandleFlicker(CHSV(40, 255, 190), CHSV(40, 150, 255));
+//  paintCandleFlicker(CHSV(40, 255, 0), CHSV(40, 255, 255)); // DEBUG COLOR RANGE
   // paintNoise();
 }
 
 double v;
 CHSV color;
-#define AMOUNT 0.2
-void paintCandleBlend(CHSV color1, CHSV color2, float frequency) {
-  v = inoise8(458212393 + millis() * frequency) * 0.6 + inoise8(239345821 + millis() * frequency * 5) * 0.4;
+#define CANDLE_UPDATE_PERCENTAGE 0.2
+#define CANDLE_FREQUENCY_BASE 0.1
+#define CANDLE_FLICKER_RANGE 0.1
+#define CANDLE_FLICKER_FREQ 0.05
+#define CANDLE_FLICKER_LENGTH 10. // Inverse value - Higher value = shorter length
+void paintCandleFlicker(CHSV color1, CHSV color2) {
+  v = inoise8(458293821.2393, millis() * (CANDLE_FREQUENCY_BASE + CANDLE_FLICKER_RANGE * pow(inoise8(23932383.5821, millis() * CANDLE_FLICKER_FREQ) / 255.0, CANDLE_FLICKER_LENGTH)));
   color = blend(color1, color2, v);
-  for (int i = 0; i < NUM_LEDS * NUM_STRIPS * AMOUNT; i++) {
-    leds[random(NUM_LEDS * NUM_STRIPS)] = color;
+  for (int i = 0; i < NUM_LEDS * NUM_STRIPS; i++) {
+    if (random(0, 100) / 100.0 < CANDLE_UPDATE_PERCENTAGE) {
+      leds[i] = color;
+    }
   }
   FastLED.show();
-  delay(10);
 }
 
 void paintSolidColour(CHSV color) {
@@ -115,5 +121,5 @@ void fillnoise8() {
       //      green_noise[1][i][j] = remap[inoise8(boff + x, boff + y, joffset)];
     }
   }
-  z += SPEED;
+  z += SPEED; // TODO: Need to fix this to use millis() so that it doesn't change with framerate 
 }
