@@ -62,8 +62,9 @@ void loop() {
 }
 
 double v;
+int f = 0;
+int g;
 CHSV color;
-#define CANDLE_UPDATE_PERCENTAGE 0.2
 #define CANDLE_FREQUENCY_BASE 0.1
 #define CANDLE_FLICKER_RANGE 0.1
 #define CANDLE_FLICKER_FREQ 0.05
@@ -71,10 +72,16 @@ CHSV color;
 void paintCandleFlicker(CHSV color1, CHSV color2) {
   v = inoise8(458293821.2393, millis() * (CANDLE_FREQUENCY_BASE + CANDLE_FLICKER_RANGE * pow(inoise8(23932383.5821, millis() * CANDLE_FLICKER_FREQ) / 255.0, CANDLE_FLICKER_LENGTH)));
   color = blend(color1, color2, v);
+
+  f += 1;
+  g = f & 1;
   for (int i = 0; i < NUM_LEDS * NUM_STRIPS; i++) {
-    if (random(0, 100) / 100.0 < CANDLE_UPDATE_PERCENTAGE) {
+    if ((i & 1) == g) {
       leds[i] = color;
     }
+//    if (random(0, 100) / 100.0 < CANDLE_UPDATE_PERCENTAGE) {
+//      leds[i] = color;
+//    }
   }
   FastLED.show();
 }
