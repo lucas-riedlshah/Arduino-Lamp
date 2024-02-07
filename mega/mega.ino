@@ -61,20 +61,26 @@ void loop() {
   // paintNoise();
 }
 
-double v;
+uint8_t steady, flicker, turb;
+uint8_t v;
+CHSV color;
 int f = 0;
 int g;
-CHSV color;
-#define CANDLE_FREQUENCY_BASE 0.1
-#define CANDLE_FLICKER_RANGE 0.1
-#define CANDLE_FLICKER_FREQ 0.05
-#define CANDLE_FLICKER_LENGTH 10. // Inverse value - Higher value = shorter length
+#define CANDLE_STEADY_FREQ 0.1
+#define CANDLE_FLICKER_FREQ 2
+#define CANDLE_TURB_FREQ 0.1
+#define CANDLE_FLICKER_THRESHOLD 80 // 0-255, 80 means more turbulence - flickers more often
 void paintCandleFlicker(CHSV color1, CHSV color2) {
-  v = inoise8(458293821.2393, millis() * (CANDLE_FREQUENCY_BASE + CANDLE_FLICKER_RANGE * pow(inoise8(23932383.5821, millis() * CANDLE_FLICKER_FREQ) / 255.0, CANDLE_FLICKER_LENGTH)));
+  steady = mynoise(10000, millis() * CANDLE_STEADY_FREQ);
+  flicker = mynoise(20000, millis() * CANDLE_FLICKER_FREQ);
+  turb = mynoise(30000, millis() * CANDLE_TURB_FREQ);
+
+  v = (turb < CANDLE_FLICKER_THRESHOLD ? 0.6 : 1) * steady + (turb < CANDLE_FLICKER_THRESHOLD ? 0.4 : 0) * flicker;
+
+//  Serial.println(v);
+  
   color = blend(color1, color2, v);
 
-  f += 1;
-  g = f & 1;
   for (int i = 0; i < NUM_LEDS * NUM_STRIPS; i++) {
     if ((i & 1) == g) {
       leds[i] = color;
@@ -129,4 +135,9 @@ void fillnoise8() {
     }
   }
   z += SPEED; // TODO: Need to fix this to use millis() so that it doesn't change with framerate 
+}
+
+uint8_t mynoise(uint16_t x, uint16_t y) {
+//  return inoise16(x << 8, y << 8) >> 8;
+  return inoise8(x, y);
 }
