@@ -7,7 +7,7 @@
 #define SPEED 20
 #define SCALE 5
 #define STEPS 5
-#define MODE_ADDR 0   // EEPROM address to store mode (0=candle, 1=noise, 2=gradient)
+#define MODE_ADDR 0   // EEPROM address to store mode (0=candle, 1=noise, 2=gradient, 3=moving gradient)
 
 CRGB leds[NUM_LEDS * NUM_STRIPS];
 CRGB noise[2][NUM_STRIPS][NUM_LEDS];
@@ -31,6 +31,10 @@ static uint16_t roff, goff, boff, z;
 
 // Mode variable
 uint8_t mode = 0;
+
+// Moving gradient variables
+float gradientOffset = 0.0;
+const float gradientSpeed = 0.02; // Speed of gradient movement
 
 void setup() {
   Serial.begin(9600);
@@ -65,22 +69,36 @@ void setup() {
 
   // ---- EEPROM logic ----
   mode = EEPROM.read(MODE_ADDR);      // read saved mode
-  mode = (mode + 1) % 3;              // cycle between 0, 1, 2
+  mode = (mode + 1) % 4;              // cycle between 0, 1, 2, 3
   EEPROM.write(MODE_ADDR, mode);      // save new mode
   Serial.print("Mode selected: ");
+  mode = 3;
   if (mode == 0) {
     Serial.println("Candle Flicker");
   } else if (mode == 1) {
     Serial.println("Noise");
-  } else {
+  } else if (mode == 2) {
     Serial.println("Yellow-Pink Gradient");
+  } else {
+    Serial.println("Moving Gradient");
   }
 }
 
-void paintGradientYellowPink() {
-  // Gradient from yellow (HSV: 43,255,255) to pink (HSV: 220,255,255)
-  CHSV colorStart = CHSV(43, 255, 255);   // yellow
-  CHSV colorEnd   = CHSV(220, 255, 255);  // pink
+void loop() {
+  if (mode == 0) {
+    paintCandleFlicker(CHSV(40, 255, 190), CHSV(40, 150, 255));
+  } else if (mode == 1) {
+    paintNoise();
+  } else if (mode == 2) {
+    // Gradient from yellow (HSV: 43,255,255) to pink (HSV: 220,255,255)
+    paintGradient(CHSV(43, 255, 255), CHSV(220, 255, 255));
+  } else {
+    // Moving gradient from yellow to pink
+    paintMovingGradient(CHSV(43, 255, 255), CHSV(220, 255, 255));
+  }
+}
+
+void paintGradient(CHSV colorStart, CHSV colorEnd) {
   // Vertical gradient: blend by LED index within each strip
   for (int strip = 0; strip < NUM_STRIPS; strip++) {
     for (int led = 0; led < NUM_LEDS; led++) {
@@ -92,17 +110,45 @@ void paintGradientYellowPink() {
   delay(30);
 }
 
-void loop() {
-  if (mode == 0) {
-    paintCandleFlicker(CHSV(40, 255, 190), CHSV(40, 150, 255));
-  } else if (mode == 1) {
-    paintNoise();
-  } else {
-    paintGradientYellowPink();
+void paintMovingGradient(CHSV colorStart, CHSV colorEnd) {
+  // Update gradient offset for bidirectional fade
+  gradientOffset += gradientSpeed;
+  if (gradientOffset >= 2.0) {
+    gradientOffset -= 2.0; // Loop back to 0 for full cycle
   }
+  
+  // Create bidirectional fade: A->B->A->B...
+  for (int strip = 0; strip < NUM_STRIPS; strip++) {
+    for (int led = 0; led < NUM_LEDS; led++) {
+      // Calculate position with offset for movement
+      float ledPos = (float)led / (NUM_LEDS - 1) + gradientOffset;
+      if (ledPos >= 2.0) {
+        ledPos -= 2.0; // Wrap around for full cycle
+      }
+      
+      // Create bidirectional fade effect
+      float fadePos;
+      if (ledPos <= 1.0) {
+        // First half: fade from A to B
+        fadePos = ledPos;
+      } else {
+        // Second half: fade from B back to A
+        fadePos = 2.0 - ledPos;
+      }
+      
+      // Apply smooth curve for softer transitions
+      fadePos = fadePos * fadePos * (3.0 - 2.0 * fadePos); // Smoothstep function
+      
+      // Convert to blend amount
+      uint8_t blendAmount = (uint8_t)(fadePos * 255);
+      leds[strip * NUM_LEDS + led] = blend(colorStart, colorEnd, blendAmount);
+    }
+  }
+  FastLED.show();
+  delay(min(random(0, 500), random(500, 1000)));
 }
 
-// --- existing functions unchanged below ---
+
 uint8_t steady, flicker, turb;
 uint8_t v;
 CHSV color;
