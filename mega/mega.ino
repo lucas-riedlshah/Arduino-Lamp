@@ -7,7 +7,7 @@
 #define SPEED 20
 #define SCALE 5
 #define STEPS 5
-#define MODE_ADDR 0   // EEPROM address to store mode (0=candle, 1=noise)
+#define MODE_ADDR 0   // EEPROM address to store mode (0=candle, 1=noise, 2=gradient)
 
 CRGB leds[NUM_LEDS * NUM_STRIPS];
 CRGB noise[2][NUM_STRIPS][NUM_LEDS];
@@ -65,17 +65,40 @@ void setup() {
 
   // ---- EEPROM logic ----
   mode = EEPROM.read(MODE_ADDR);      // read saved mode
-  mode = (mode == 0) ? 1 : 0;         // toggle between 0 and 1
+  mode = (mode + 1) % 3;              // cycle between 0, 1, 2
   EEPROM.write(MODE_ADDR, mode);      // save new mode
   Serial.print("Mode selected: ");
-  Serial.println(mode == 0 ? "Candle Flicker" : "Noise");
+  if (mode == 0) {
+    Serial.println("Candle Flicker");
+  } else if (mode == 1) {
+    Serial.println("Noise");
+  } else {
+    Serial.println("Yellow-Pink Gradient");
+  }
+}
+
+void paintGradientYellowPink() {
+  // Gradient from yellow (HSV: 43,255,255) to pink (HSV: 220,255,255)
+  CHSV colorStart = CHSV(43, 255, 255);   // yellow
+  CHSV colorEnd   = CHSV(220, 255, 255);  // pink
+  // Vertical gradient: blend by LED index within each strip
+  for (int strip = 0; strip < NUM_STRIPS; strip++) {
+    for (int led = 0; led < NUM_LEDS; led++) {
+      uint8_t blendAmount = map(led, 0, NUM_LEDS - 1, 0, 255);
+      leds[strip * NUM_LEDS + led] = blend(colorStart, colorEnd, blendAmount);
+    }
+  }
+  FastLED.show();
+  delay(30);
 }
 
 void loop() {
   if (mode == 0) {
     paintCandleFlicker(CHSV(40, 255, 190), CHSV(40, 150, 255));
-  } else {
+  } else if (mode == 1) {
     paintNoise();
+  } else {
+    paintGradientYellowPink();
   }
 }
 
