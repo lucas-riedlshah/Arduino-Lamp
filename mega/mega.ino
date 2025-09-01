@@ -1,4 +1,4 @@
-#include "FastLED.h"
+#include "FastLED.h" // version 3.9.20
 
 #define NUM_LEDS 48
 #define NUM_STRIPS 12
@@ -81,6 +81,8 @@ void paintCandleFlicker(CHSV color1, CHSV color2) {
   
   color = blend(color1, color2, v);
 
+  f += 1;
+  g = f & 1;
   for (int i = 0; i < NUM_LEDS * NUM_STRIPS; i++) {
     if ((i & 1) == g) {
       leds[i] = color;
