@@ -72,7 +72,6 @@ void setup() {
   mode = (mode + 1) % 4;              // cycle between 0, 1, 2, 3
   EEPROM.write(MODE_ADDR, mode);      // save new mode
   Serial.print("Mode selected: ");
-  mode = 3;
   if (mode == 0) {
     Serial.println("Candle Flicker");
   } else if (mode == 1) {
@@ -145,7 +144,7 @@ void paintMovingGradient(CHSV colorStart, CHSV colorEnd) {
     }
   }
   FastLED.show();
-  delay(min(random(0, 500), random(500, 1000)));
+  delay(min(random(0, 500), random(0, 500)));
 }
 
 
