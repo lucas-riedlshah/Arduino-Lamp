@@ -18,16 +18,16 @@ void GradientMode::loop() {
                 if (ledPos >= 2.0) {
                     ledPos -= 2.0;
                 }
-                float fadePos;
-                if (ledPos <= 1.0) {
-                    fadePos = ledPos;
+                float blendPos;
+                if (ledPos < 1.0) {
+                    blendPos = ledPos;
                 } else {
-                    float compressedPos = (ledPos - 1.0) * 4.0;
-                    fadePos = 1.0 - compressedPos;
-                    if (fadePos < 0.0) fadePos = 0.0;
+                    blendPos = 2.0 - ledPos;
                 }
-                fadePos = fadePos * fadePos * (3.0 - 2.0 * fadePos);
-                uint8_t blendAmount = (uint8_t)(fadePos * 255);
+                // Clamp blendPos between 0.0 and 1.0
+                if (blendPos < 0.0) blendPos = 0.0;
+                if (blendPos > 1.0) blendPos = 1.0;
+                uint8_t blendAmount = (uint8_t)(blendPos * 255);
                 leds[strip * NUM_LEDS + led] = blend(colorStart, colorEnd, blendAmount);
             }
         }
@@ -37,7 +37,8 @@ void GradientMode::loop() {
         // Static gradient
         for (int strip = 0; strip < NUM_STRIPS; strip++) {
             for (int led = 0; led < NUM_LEDS; led++) {
-                uint8_t blendAmount = map(led, 0, NUM_LEDS - 1, 0, 255);
+                float blendPos = (float)led / (NUM_LEDS - 1);
+                uint8_t blendAmount = (uint8_t)(blendPos * 255);
                 leds[strip * NUM_LEDS + led] = blend(colorStart, colorEnd, blendAmount);
             }
         }
