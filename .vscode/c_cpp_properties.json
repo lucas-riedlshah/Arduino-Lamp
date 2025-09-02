@@ -1,0 +1,19 @@
+{
+    "configurations": [
+        {
+            "name": "Arduino",
+            "includePath": [
+                "${env:HOME}/Documents/Arduino/libraries/FastLED/src",
+                "${workspaceFolder}/**"
+            ],
+            "browse": {
+                "limitSymbolsToIncludedHeaders": true,
+                "path": [
+                    "${env:HOME}/Documents/Arduino/libraries/FastLED/src",
+                    "${workspaceFolder}/**"
+                ]
+            }
+        }
+    ],
+    "version": 4
+}

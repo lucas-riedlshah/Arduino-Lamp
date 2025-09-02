@@ -2,9 +2,16 @@
 #define NOISE_MODE_H
 
 #include "shared_config.h"
+#include "ModeInterface.h"
 
-void paintNoise();
-void fillnoise8();
-void initNoise();
+class NoiseMode : public ModeInterface {
+    CRGB*** noise = nullptr;
+    uint16_t roff, goff, boff, z;
+public:
+    void setup() override;
+    void loop() override;
+    void cleanup() override;
+    ~NoiseMode() { cleanup(); }
+};
 
 #endif

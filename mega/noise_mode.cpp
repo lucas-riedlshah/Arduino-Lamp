@@ -1,7 +1,7 @@
 #include "noise_mode.h"
 #include "shared_config.h"
 
-CRGB noise[2][NUM_STRIPS][NUM_LEDS];
+// remap table
 uint8_t remap[256] = { 
   0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,3,3,3,3,3,4,4,4,4,
   5,5,5,5,6,6,6,6,7,7,7,8,8,8,9,9,10,10,10,11,11,12,12,12,13,13,14,14,
@@ -17,42 +17,59 @@ uint8_t remap[256] = {
   225,226,228,230,232,234,236,238,240,242,244,246,248,250,252,254,255 
 };
 
-uint16_t roff, goff, boff, z;
 
-void initNoise() {
-  z = random16();
-  roff = random16();
-  goff = random16();
-  boff = random16();
+void NoiseMode::setup() {
+    // Allocate noise array
+    noise = new CRGB**[2];
+    for (int i = 0; i < 2; i++) {
+        noise[i] = new CRGB*[NUM_STRIPS];
+        for (int j = 0; j < NUM_STRIPS; j++) {
+            noise[i][j] = new CRGB[NUM_LEDS];
+        }
+    }
+    z = random16();
+    roff = random16();
+    goff = random16();
+    boff = random16();
 }
 
-void paintNoise() {
-  fillnoise8();
-
-  for (int p = 0; p < STEPS; p++) {
+void NoiseMode::loop() {
+    // fillnoise8
     for (int i = 0; i < NUM_STRIPS; i++) {
-      for (int j = 0; j < NUM_LEDS; j++) {
-        leds[i * 48 + j] = blend(noise[0][i][j], noise[1][i][j], p * 255 / STEPS);
-      }
+        for (int j = 0; j < NUM_LEDS; j++) {
+            noise[0][i][j] = noise[1][i][j];
+            int joffset = j * SCALE * 2 + z * 0.1;
+            float x = sin(i * PI / 6) * SCALE + z;
+            float y = cos(i * PI / 6) * SCALE + z;
+            noise[1][i][j] = CRGB(
+                remap[inoise8(roff + x, roff + y, joffset)],
+                remap[inoise8(goff + x, goff + y, joffset)],
+                remap[inoise8(boff + x, boff + y, joffset)]
+            );
+        }
     }
-    FastLED.show();
-    delay(3);
-  }
+    z++;
+
+    for (int p = 0; p < STEPS; p++) {
+        for (int i = 0; i < NUM_STRIPS; i++) {
+            for (int j = 0; j < NUM_LEDS; j++) {
+                leds[i * 48 + j] = blend(noise[0][i][j], noise[1][i][j], p * 255 / STEPS);
+            }
+        }
+        FastLED.show();
+        delay(3);
+    }
 }
 
-void fillnoise8() {
-  for (int i = 0; i < NUM_STRIPS; i++) {
-    for (int j = 0; j < NUM_LEDS; j++) {
-      noise[0][i][j] = noise[1][i][j];
-      int joffset = j * SCALE * 2 + z * 0.1;
-      float x = sin(i * PI / 6) * SCALE + z;
-      float y = cos(i * PI / 6) * SCALE + z;
-      noise[1][i][j] = CRGB(
-        remap[inoise8(roff + x, roff + y, joffset)],
-        remap[inoise8(goff + x, goff + y, joffset)],
-        remap[inoise8(boff + x, boff + y, joffset)]
-      );
+void NoiseMode::cleanup() {
+    if (noise) {
+        for (int i = 0; i < 2; i++) {
+            for (int j = 0; j < NUM_STRIPS; j++) {
+                delete[] noise[i][j];
+            }
+            delete[] noise[i];
+        }
+        delete[] noise;
+        noise = nullptr;
     }
-  }
-  z++;
 }
