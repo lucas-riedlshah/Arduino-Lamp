@@ -1,7 +1,6 @@
 #include "candle_mode.h"
 #include "shared_config.h"
 
-// Candle flicker variables
 uint8_t steady, flicker, turb;
 uint8_t v;
 CHSV color;

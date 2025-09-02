@@ -3,7 +3,6 @@
 
 #include "shared_config.h"
 
-// Candle flicker variables
 extern uint8_t steady, flicker, turb;
 extern uint8_t v;
 extern CHSV color;
@@ -15,7 +14,6 @@ extern int g;
 #define CANDLE_TURB_FREQ 0.1
 #define CANDLE_FLICKER_THRESHOLD 80
 
-// Function declarations
 void paintCandleFlicker(CHSV color1, CHSV color2);
 
 #endif

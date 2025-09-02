@@ -1,7 +1,6 @@
 #include "noise_mode.h"
 #include "shared_config.h"
 
-// Noise mode variables
 CRGB noise[2][NUM_STRIPS][NUM_LEDS];
 uint8_t remap[256] = { 
   0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,3,3,3,3,3,4,4,4,4,

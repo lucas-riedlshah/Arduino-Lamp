@@ -1,7 +1,6 @@
 #include "gradient_mode.h"
 #include "shared_config.h"
 
-// Moving gradient variables
 float gradientOffset = 0.0;
 const float gradientSpeed = 0.02; // Speed of gradient movement
 

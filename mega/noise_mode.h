@@ -3,7 +3,6 @@
 
 #include "shared_config.h"
 
-// Function declarations
 void paintNoise();
 void fillnoise8();
 void initNoise();
