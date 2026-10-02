@@ -18,6 +18,11 @@ void LifeGrid::setAlive(uint8_t strip, uint8_t row) {
     setBitAlive(cells, strip, row);
 }
 
+void LifeGrid::setDead(uint8_t strip, uint8_t row) {
+    const uint16_t index = (uint16_t)strip * NUM_LEDS + row;
+    cells[index >> 3] &= ~(uint8_t)(1U << (index & 7));
+}
+
 uint8_t LifeGrid::countNeighbors(uint8_t strip, uint8_t row) const {
     uint8_t neighbors = 0;
     for (int8_t dx = -1; dx <= 1; ++dx) {
@@ -67,6 +72,10 @@ void LifeGrid::calculateNext() {
 
 bool LifeGrid::hasChanged() const {
     return memcmp(cells, nextCells, sizeof(cells)) != 0;
+}
+
+bool LifeGrid::nextIsAlive(uint8_t strip, uint8_t row) const {
+    return bitIsAlive(nextCells, strip, row);
 }
 
 void LifeGrid::commit() {

@@ -13,11 +13,13 @@ public:
 
     bool isAlive(uint8_t strip, uint8_t row) const;
     void setAlive(uint8_t strip, uint8_t row);
+    void setDead(uint8_t strip, uint8_t row);
     void clear();
     uint16_t liveCount() const;
     void calculateNext();
     bool hasChanged() const;
     void commit();
+    bool nextIsAlive(uint8_t strip, uint8_t row) const;
 
 private:
     uint8_t cells[STATE_BYTES];
