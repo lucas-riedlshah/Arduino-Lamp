@@ -211,7 +211,9 @@ bool LifeMode::injectPattern() {
             const uint8_t row = (chosenRow + dy) % NUM_LEDS;
             if (grid.isAlive(strip, row)) continue;
             grid.setAlive(strip, row);
-            colorAges[(uint16_t)strip * NUM_LEDS + row] = 0;
+            const uint16_t index = (uint16_t)strip * NUM_LEDS + row;
+            visualLevels[index] = 0;
+            colorAges[index] = 0;
             changed = true;
         }
     }
@@ -235,7 +237,9 @@ void LifeMode::advanceLife(unsigned long now) {
                 for (uint8_t strip = 0; strip < NUM_STRIPS; ++strip) {
                     for (uint8_t row = 0; row < NUM_LEDS; ++row) {
                         if (grid.nextIsAlive(strip, row) && !grid.isAlive(strip, row)) {
-                            colorAges[(uint16_t)strip * NUM_LEDS + row] = 0;
+                            const uint16_t index = (uint16_t)strip * NUM_LEDS + row;
+                            visualLevels[index] = 0;
+                            colorAges[index] = 0;
                         }
                     }
                 }
