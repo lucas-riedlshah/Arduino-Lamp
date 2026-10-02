@@ -26,11 +26,11 @@ private:
     static const uint8_t YELLOW_HUE = 20;
     static constexpr float BACKGROUND_GRADIENT_STRETCH = 0.5f;
     static constexpr float BACKGROUND_GRADIENT_STEP = 0.02f;
-    static const bool SHOW_DIM_OFF_CELLS = true; // Set false for black off cells.
+    static const bool SHOW_DIM_OFF_CELLS = false; // Set false for black off cells.
     static const uint8_t LIT_CELL_BRIGHTNESS = 255;
     static const uint8_t OFF_CELL_BRIGHTNESS = 100;
     static const unsigned long PATTERN_EMPTY_GRID_INTERVAL_MS = 2000UL;
-    static const uint16_t PATTERN_RATE_HALF_LIFE_DOTS = 100;
+    static const uint16_t PATTERN_RATE_HALF_LIFE_DOTS = 200;
     static constexpr float PATTERN_INTERVAL_VARIATION = 1.0f;
 
     static_assert(CELL_FADE_TICKS > 0 && CELL_FADE_DURATION_MS <= 65535UL,
