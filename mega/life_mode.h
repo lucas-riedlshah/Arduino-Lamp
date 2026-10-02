@@ -26,7 +26,7 @@ private:
     static const uint8_t YELLOW_HUE = 20;
     static constexpr float BACKGROUND_GRADIENT_STRETCH = 0.5f;
     static constexpr float BACKGROUND_GRADIENT_STEP = 0.02f;
-    static const bool SHOW_DIM_OFF_CELLS = false; // Set false for black off cells.
+    static const bool SHOW_DIM_OFF_CELLS = true; // Set false for black off cells.
     static const uint8_t LIT_CELL_BRIGHTNESS = 255;
     static const uint8_t OFF_CELL_BRIGHTNESS = 100;
     static const unsigned long PATTERN_EMPTY_GRID_INTERVAL_MS = 2000UL;
@@ -50,7 +50,7 @@ private:
     LifeGrid grid;
     CRGB backgroundColors[NUM_LEDS]; // Gradient by height, shared by all strips.
     uint16_t visualLevels[CELL_COUNT]; // 0 = off colour, CELL_FADE_DURATION_MS = lit colour.
-    uint16_t colorAges[CELL_COUNT]; // Time alive, capped at CELL_AGE_DEATH_THRESHOLD_MS.
+    uint16_t colorAges[CELL_COUNT]; // Visual color age and expiry age, capped at CELL_AGE_DEATH_THRESHOLD_MS.
     bool paused = false;
     bool visualTransitionActive = false;
     bool renderPending = false;
@@ -73,6 +73,7 @@ private:
     bool injectPattern();
     void schedulePatternInjection();
     void resumeIfChanged();
+    void prepareNewCell(uint16_t index);
     void advanceVisualState(unsigned long now);
     void render();
 };

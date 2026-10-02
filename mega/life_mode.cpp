@@ -71,6 +71,16 @@ bool LifeMode::advanceBackgroundIfDue(unsigned long now) {
     return true;
 }
 
+void LifeMode::prepareNewCell(uint16_t index) {
+    if (visualLevels[index] == 0) {
+        colorAges[index] = 0;
+    } else if (colorAges[index] > COLOR_TRANSITION_DURATION_MS) {
+        // A still-visible cell keeps its color and brightness when it relights.
+        // Give it the configured post-color lifetime before age expiry.
+        colorAges[index] = COLOR_TRANSITION_DURATION_MS;
+    }
+}
+
 void LifeMode::advanceVisualState(unsigned long now) {
     const unsigned long elapsed = now - lastVisualUpdate;
     lastVisualUpdate = now;
@@ -212,8 +222,7 @@ bool LifeMode::injectPattern() {
             if (grid.isAlive(strip, row)) continue;
             grid.setAlive(strip, row);
             const uint16_t index = (uint16_t)strip * NUM_LEDS + row;
-            visualLevels[index] = 0;
-            colorAges[index] = 0;
+            prepareNewCell(index);
             changed = true;
         }
     }
@@ -238,8 +247,7 @@ void LifeMode::advanceLife(unsigned long now) {
                     for (uint8_t row = 0; row < NUM_LEDS; ++row) {
                         if (grid.nextIsAlive(strip, row) && !grid.isAlive(strip, row)) {
                             const uint16_t index = (uint16_t)strip * NUM_LEDS + row;
-                            visualLevels[index] = 0;
-                            colorAges[index] = 0;
+                            prepareNewCell(index);
                         }
                     }
                 }
@@ -267,6 +275,29 @@ void LifeMode::killOldCells() {
             if (!grid.isAlive(strip, row)) continue;
             const uint16_t index = (uint16_t)strip * NUM_LEDS + row;
             if (colorAges[index] < CELL_AGE_DEATH_THRESHOLD_MS) continue;
+
+            bool hasYoungerLiveNeighbor = false;
+            for (int8_t dx = -1; dx <= 1 && !hasYoungerLiveNeighbor; ++dx) {
+                int8_t neighborStrip = (int8_t)strip + dx;
+                if (neighborStrip < 0) neighborStrip = NUM_STRIPS - 1;
+                if (neighborStrip >= NUM_STRIPS) neighborStrip = 0;
+                for (int8_t dy = -1; dy <= 1; ++dy) {
+                    if (dx == 0 && dy == 0) continue;
+                    int8_t neighborRow = (int8_t)row + dy;
+                    if (neighborRow < 0) neighborRow = NUM_LEDS - 1;
+                    if (neighborRow >= NUM_LEDS) neighborRow = 0;
+
+                    const uint16_t neighborIndex =
+                        (uint16_t)neighborStrip * NUM_LEDS + neighborRow;
+                    if (grid.isAlive(neighborStrip, neighborRow) &&
+                        colorAges[neighborIndex] < CELL_AGE_DEATH_THRESHOLD_MS) {
+                        hasYoungerLiveNeighbor = true;
+                        break;
+                    }
+                }
+            }
+            if (!hasYoungerLiveNeighbor) continue;
+
             grid.setDead(strip, row);
             paused = false; // Resume Conway on the next tick after a stable grid changes.
             visualTransitionActive = true;
