@@ -12,9 +12,10 @@ void GradientMode::loop() {
         if (gradientOffset >= 2.0) {
             gradientOffset -= 2.0; // Loop back to 0 for full cycle
         }
+        const float stretch = 0.5; // Lower value for wider gradient
         for (int strip = 0; strip < NUM_STRIPS; strip++) {
             for (int led = 0; led < NUM_LEDS; led++) {
-                float ledPos = (float)led / (NUM_LEDS - 1) + gradientOffset;
+                float ledPos = ((float)led / (NUM_LEDS - 1)) * stretch + gradientOffset;
                 if (ledPos >= 2.0) {
                     ledPos -= 2.0;
                 }
@@ -24,7 +25,6 @@ void GradientMode::loop() {
                 } else {
                     blendPos = 2.0 - ledPos;
                 }
-                // Clamp blendPos between 0.0 and 1.0
                 if (blendPos < 0.0) blendPos = 0.0;
                 if (blendPos > 1.0) blendPos = 1.0;
                 uint8_t blendAmount = (uint8_t)(blendPos * 255);

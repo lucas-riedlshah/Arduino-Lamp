@@ -4,15 +4,37 @@
 #include "candle_mode.h"
 #include "noise_mode.h"
 #include "gradient_mode.h"
+#include "bounce_mode.h"
+#include "gradient_candle_mode.h"
+#include "life_mode.h"
+#include "strip_test_mode.h"
 #include "ModeInterface.h"
 
-#define MODE_ADDR 0   // EEPROM address to store mode (0=candle, 1=noise, 2=gradient, 3=moving gradient)
+#define MODE_ADDR 0
+#define MODE_COUNT 7
+#define TEMP_STRIP_TEST 0 // Set to 1 to show the strip mapping test.
 
 CRGB leds[NUM_LEDS * NUM_STRIPS];
 
 // Mode variable
 uint8_t mode = 0;
 ModeInterface* currentMode = nullptr;
+
+// FastLED requires the data pin as a compile-time template argument. This
+// recursion registers the strips in the same order as stripPinsByPosition.
+template <uint8_t Position>
+struct RegisterStrip {
+    static void run() {
+        FastLED.addLeds<WS2812B, stripPinsByPosition[Position], GRB>(
+            leds, (uint16_t)Position * NUM_LEDS, NUM_LEDS);
+        RegisterStrip<Position + 1>::run();
+    }
+};
+
+template <>
+struct RegisterStrip<NUM_STRIPS> {
+    static void run() {}
+};
 
 void switchMode(uint8_t newMode) {
     if (currentMode) {
@@ -21,7 +43,7 @@ void switchMode(uint8_t newMode) {
         currentMode = nullptr;
     }
     mode = newMode;
-    switch (mode) {
+    switch (TEMP_STRIP_TEST ? 7 : 6) {
         case 0:
             currentMode = new CandleMode();
             break;
@@ -32,9 +54,26 @@ void switchMode(uint8_t newMode) {
             // Static gradient: yellow to pink
             currentMode = new GradientMode(CHSV(43, 255, 255), CHSV(220, 255, 255), false);
             break;
-        default:
+        case 3: {
+            // Example: parse colors (could be from config, user input, etc.)
+            CRGB ringColor = CRGB(0, 0, 255);
+            CRGB fadeColor = CRGB(55, 0, 255);
+            currentMode = new BounceMode(ringColor, fadeColor);
+            break;
+        }
+        case 4: {
+            currentMode = new GradientCandleMode();
+            break;
+        }
+        case 5:
             // Moving gradient: yellow to pink
             currentMode = new GradientMode(CHSV(43, 255, 255), CHSV(220, 255, 255), true);
+            break;
+        case 6:
+            currentMode = new LifeMode();
+            break;
+        case 7:
+            currentMode = new StripTestMode();
             break;
     }
     if (currentMode) currentMode->setup();
@@ -42,27 +81,16 @@ void switchMode(uint8_t newMode) {
 
 void setup() {
     Serial.begin(9600);
-    FastLED.addLeds< WS2812B, DATA_START + 0, GRB >(leds, 0 * NUM_LEDS, NUM_LEDS);
-    FastLED.addLeds< WS2812B, DATA_START + 11, GRB >(leds, 1 * NUM_LEDS, NUM_LEDS);
-    FastLED.addLeds< WS2812B, DATA_START + 3, GRB >(leds, 2 * NUM_LEDS, NUM_LEDS);
-    FastLED.addLeds< WS2812B, DATA_START + 5, GRB >(leds, 3 * NUM_LEDS, NUM_LEDS);
-    FastLED.addLeds< WS2812B, DATA_START + 8, GRB >(leds, 4 * NUM_LEDS, NUM_LEDS);
-    FastLED.addLeds< WS2812B, DATA_START + 4, GRB >(leds, 5 * NUM_LEDS, NUM_LEDS);
-    FastLED.addLeds< WS2812B, DATA_START + 10, GRB >(leds, 6 * NUM_LEDS, NUM_LEDS);
-    FastLED.addLeds< WS2812B, DATA_START + 1, GRB >(leds, 7 * NUM_LEDS, NUM_LEDS);
-    FastLED.addLeds< WS2812B, DATA_START + 2, GRB >(leds, 8 * NUM_LEDS, NUM_LEDS);
-    FastLED.addLeds< WS2812B, DATA_START + 6, GRB >(leds, 9 * NUM_LEDS, NUM_LEDS);
-    FastLED.addLeds< WS2812B, DATA_START + 7, GRB >(leds, 10 * NUM_LEDS, NUM_LEDS);
-    FastLED.addLeds< WS2812B, DATA_START + 9, GRB >(leds, 11 * NUM_LEDS, NUM_LEDS);
+    RegisterStrip<0>::run();
     FastLED.setMaxPowerInVoltsAndMilliamps(5, 19000);
     randomSeed(analogRead(8));
     FastLED.setBrightness(0);
     fill_solid(leds, NUM_LEDS * NUM_STRIPS, CRGB::Black);
     FastLED.show();
-    FastLED.setBrightness(100);
+    FastLED.setBrightness(255);
     // ---- EEPROM logic ----
     mode = EEPROM.read(MODE_ADDR);      // read saved mode
-    mode = (mode + 1) % 4;              // cycle between 0, 1, 2, 3
+    mode = (mode + 1) % MODE_COUNT;
     EEPROM.write(MODE_ADDR, mode);      // save new mode
     Serial.print("Mode selected: ");
     Serial.println(mode);

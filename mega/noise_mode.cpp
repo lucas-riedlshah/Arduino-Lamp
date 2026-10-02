@@ -53,7 +53,7 @@ void NoiseMode::loop() {
     for (int p = 0; p < STEPS; p++) {
         for (int i = 0; i < NUM_STRIPS; i++) {
             for (int j = 0; j < NUM_LEDS; j++) {
-                leds[i * 48 + j] = blend(noise[0][i][j], noise[1][i][j], p * 255 / STEPS);
+                leds[i * NUM_LEDS + j] = blend(noise[0][i][j], noise[1][i][j], p * 255 / STEPS);
             }
         }
         FastLED.show();
