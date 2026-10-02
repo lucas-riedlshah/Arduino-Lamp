@@ -46,12 +46,29 @@ void LifeMode::buildBackgroundGradient() {
     const CHSV pink(PINK_HUE, 255, OFF_CELL_BRIGHTNESS);
     for (uint8_t row = 0; row < NUM_LEDS; ++row) {
         if (SHOW_DIM_OFF_CELLS) {
-            const uint8_t amount = (uint32_t)row * 128 / (NUM_LEDS - 1);
-            backgroundColors[row] = blend(pink, yellow, amount);
+            float position = (float)row / (NUM_LEDS - 1) *
+                BACKGROUND_GRADIENT_STRETCH + backgroundGradientOffset;
+            if (position >= 2.0f) position -= 2.0f;
+            const float blendPosition = position < 1.0f ? position : 2.0f - position;
+            const uint8_t amount = (uint8_t)(blendPosition * 255.0f);
+            backgroundColors[row] = blend(yellow, pink, amount);
         } else {
             backgroundColors[row] = CRGB::Black;
         }
     }
+}
+
+bool LifeMode::advanceBackgroundIfDue(unsigned long now) {
+    if (!SHOW_DIM_OFF_CELLS || now - lastBackgroundMove < backgroundMoveDelay) return false;
+    backgroundGradientOffset += BACKGROUND_GRADIENT_STEP;
+    if (backgroundGradientOffset >= 2.0f) backgroundGradientOffset -= 2.0f;
+    buildBackgroundGradient();
+    const long firstWait = random(0, 500);
+    const long secondWait = random(0, 500);
+    backgroundMoveDelay = firstWait < secondWait ? firstWait : secondWait;
+    lastBackgroundMove = millis();
+    renderPending = true;
+    return true;
 }
 
 void LifeMode::advanceVisualState(unsigned long now) {
@@ -59,8 +76,8 @@ void LifeMode::advanceVisualState(unsigned long now) {
     lastVisualUpdate = now;
     const uint16_t fadeChange = elapsed >= CELL_FADE_DURATION_MS
         ? CELL_FADE_DURATION_MS : (uint16_t)elapsed;
-    const uint16_t colorChange = elapsed >= COLOR_TRANSITION_DURATION_MS
-        ? COLOR_TRANSITION_DURATION_MS : (uint16_t)elapsed;
+    const uint16_t ageChange = elapsed >= CELL_AGE_DEATH_THRESHOLD_MS
+        ? CELL_AGE_DEATH_THRESHOLD_MS : (uint16_t)elapsed;
     bool transitioning = false;
     for (uint8_t strip = 0; strip < NUM_STRIPS; ++strip) {
         for (uint8_t row = 0; row < NUM_LEDS; ++row) {
@@ -71,8 +88,8 @@ void LifeMode::advanceVisualState(unsigned long now) {
                     ? CELL_FADE_DURATION_MS : level + fadeChange;
                 if (level < CELL_FADE_DURATION_MS) transitioning = true;
                 uint16_t& colorAge = colorAges[index];
-                colorAge = COLOR_TRANSITION_DURATION_MS - colorAge <= colorChange
-                    ? COLOR_TRANSITION_DURATION_MS : colorAge + colorChange;
+                colorAge = CELL_AGE_DEATH_THRESHOLD_MS - colorAge <= ageChange
+                    ? CELL_AGE_DEATH_THRESHOLD_MS : colorAge + ageChange;
                 if (colorAge < COLOR_TRANSITION_DURATION_MS) transitioning = true;
             } else {
                 level = level <= fadeChange ? 0 : level - fadeChange;
@@ -86,23 +103,43 @@ void LifeMode::advanceVisualState(unsigned long now) {
 void LifeMode::render() {
     const unsigned long now = millis();
     advanceVisualState(now);
-    const CHSV pink(PINK_HUE, 255, LIT_CELL_BRIGHTNESS);
-    const CHSV yellow(YELLOW_HUE, 255, LIT_CELL_BRIGHTNESS);
+    const CHSV pink(PINK_HUE, 255, 255);
+    const CHSV yellow(YELLOW_HUE, 255, 255);
+    const CRGB black(0, 0, 0);
     for (uint8_t strip = 0; strip < NUM_STRIPS; ++strip) {
         for (uint8_t row = 0; row < NUM_LEDS; ++row) {
             const uint16_t index = (uint16_t)strip * NUM_LEDS + row;
             const CRGB& offColor = backgroundColors[row];
             const uint16_t level = visualLevels[index];
             if (level > 0) {
+                const uint16_t colorAge = colorAges[index] < COLOR_TRANSITION_DURATION_MS
+                    ? colorAges[index] : COLOR_TRANSITION_DURATION_MS;
                 const uint8_t linearColorAmount =
-                    (uint32_t)colorAges[index] * 255 / COLOR_TRANSITION_DURATION_MS;
+                    (uint32_t)colorAge * 255 / COLOR_TRANSITION_DURATION_MS;
                 const uint8_t colorAmount =
                     (uint16_t)linearColorAmount * linearColorAmount / 255; // Ease in.
-                CRGB litColor(0, 0, 0);
-                litColor = blend(pink, yellow, colorAmount);
-                const uint8_t blendAmount = (uint32_t)level * 255 / CELL_FADE_DURATION_MS;
-                leds[index] = level == CELL_FADE_DURATION_MS
-                    ? litColor : blend(offColor, litColor, blendAmount);
+                CRGB dotColor(0, 0, 0);
+                dotColor = blend(pink, yellow, colorAmount);
+                const uint8_t fadeAmount = (uint32_t)level * 255 / CELL_FADE_DURATION_MS;
+                if (grid.isAlive(strip, row)) {
+                    const uint8_t dotBrightness =
+                        (uint32_t)level * LIT_CELL_BRIGHTNESS / CELL_FADE_DURATION_MS;
+                    const uint8_t backgroundBrightness =
+                        SHOW_DIM_OFF_CELLS ? OFF_CELL_BRIGHTNESS : 0;
+                    if (backgroundBrightness > 0 && dotBrightness < backgroundBrightness) {
+                        // Crossfade only until the dot matches the background's brightness.
+                        const CRGB matchingDotColor =
+                            blend(black, dotColor, backgroundBrightness);
+                        const uint8_t backgroundMix =
+                            (uint16_t)dotBrightness * 255 / backgroundBrightness;
+                        leds[index] = blend(offColor, matchingDotColor, backgroundMix);
+                    } else {
+                        leds[index] = blend(black, dotColor, dotBrightness);
+                    }
+                } else {
+                    const CRGB litColor = blend(black, dotColor, LIT_CELL_BRIGHTNESS);
+                    leds[index] = blend(offColor, litColor, fadeAmount);
+                }
             } else {
                 leds[index] = offColor;
             }
@@ -127,13 +164,15 @@ void LifeMode::schedulePatternInjection() {
 void LifeMode::setup() {
     lastVisualUpdate = millis();
     clearGrid();
+    backgroundGradientOffset = 0.0f;
+    lastBackgroundMove = lastVisualUpdate;
+    backgroundMoveDelay = 0;
     buildBackgroundGradient();
     render();
     lastRender = millis();
     renderPending = false;
     lastStep = lastRender;
     schedulePatternInjection();
-    lastRandomCellOff = millis();
 }
 
 void LifeMode::resumeIfChanged() {
@@ -184,25 +223,28 @@ bool LifeMode::injectPattern() {
 }
 
 void LifeMode::advanceLife(unsigned long now) {
-    if (!paused && now - lastStep >= STEP_INTERVAL_MS) {
+    if (now - lastStep >= STEP_INTERVAL_MS) {
         advanceVisualState(now);
         lastStep = now;
-        grid.calculateNext();
-        if (!grid.hasChanged()) {
-            paused = true;
-            renderPending = true;
-        } else {
-            for (uint8_t strip = 0; strip < NUM_STRIPS; ++strip) {
-                for (uint8_t row = 0; row < NUM_LEDS; ++row) {
-                    if (grid.nextIsAlive(strip, row) && !grid.isAlive(strip, row)) {
-                        colorAges[(uint16_t)strip * NUM_LEDS + row] = 0;
+        if (!paused) {
+            grid.calculateNext();
+            if (!grid.hasChanged()) {
+                paused = true;
+                renderPending = true;
+            } else {
+                for (uint8_t strip = 0; strip < NUM_STRIPS; ++strip) {
+                    for (uint8_t row = 0; row < NUM_LEDS; ++row) {
+                        if (grid.nextIsAlive(strip, row) && !grid.isAlive(strip, row)) {
+                            colorAges[(uint16_t)strip * NUM_LEDS + row] = 0;
+                        }
                     }
                 }
+                grid.commit();
+                visualTransitionActive = true;
+                renderPending = true;
             }
-            grid.commit();
-            visualTransitionActive = true;
-            renderPending = true;
         }
+        killOldCells();
     }
 }
 
@@ -215,28 +257,18 @@ bool LifeMode::injectIfDue(unsigned long now) {
     return patternAdded;
 }
 
-bool LifeMode::turnRandomCellOffIfDue(unsigned long now) {
-    if (now - lastRandomCellOff < RANDOM_CELL_OFF_INTERVAL_MS) return false;
-    lastRandomCellOff = millis();
-    const uint16_t liveCount = grid.liveCount();
-    if (liveCount == 0) return false;
-    uint16_t pick = random16(liveCount);
+void LifeMode::killOldCells() {
     for (uint8_t strip = 0; strip < NUM_STRIPS; ++strip) {
         for (uint8_t row = 0; row < NUM_LEDS; ++row) {
             if (!grid.isAlive(strip, row)) continue;
-            if (pick != 0) {
-                --pick;
-                continue;
-            }
-            advanceVisualState(millis());
+            const uint16_t index = (uint16_t)strip * NUM_LEDS + row;
+            if (colorAges[index] < CELL_AGE_DEATH_THRESHOLD_MS) continue;
             grid.setDead(strip, row);
+            paused = false; // Resume Conway on the next tick after a stable grid changes.
             visualTransitionActive = true;
             renderPending = true;
-            resumeIfChanged();
-            return true;
         }
     }
-    return false;
 }
 
 void LifeMode::renderIfDue(bool forceRender) {
@@ -251,7 +283,7 @@ void LifeMode::loop() {
     const unsigned long now = millis();
     advanceLife(now);
     const bool patternAdded = injectIfDue(now);
-    const bool cellTurnedOff = turnRandomCellOffIfDue(now);
+    const bool backgroundMoved = advanceBackgroundIfDue(now);
     if (visualTransitionActive) renderPending = true;
-    renderIfDue(patternAdded || cellTurnedOff);
+    renderIfDue(patternAdded || backgroundMoved);
 }
